@@ -29,14 +29,14 @@ O projeto foi pensado para estudo de segurança em aplicações web, com foco em
 - Node.js
 - Express
 - JavaScript vanilla no front-end
-- Arquivo JSON como armazenamento local para fins didáticos
+- SQLite para desenvolvimento local, com migração automática do arquivo JSON legado
 
 ## Estrutura do projeto
 
 ```text
 .
 ├── database/
-│   └── database.json
+│   └── database.json             # legado; fonte de migração local
 ├── public/
 │   ├── index.html
 │   ├── script.js
@@ -171,16 +171,93 @@ Embora o projeto seja didático, algumas boas práticas foram incorporadas:
 - rate limiting para reduzir abuso
 - headers de segurança
 - validação de entradas e limites de dados
-- bloqueio de port 3000 em uso duplicado durante testes locais
+- persistência local em SQLite sem versionar o arquivo do banco
 
 ## Observações importantes
 
-Este projeto usa armazenamento local em arquivo JSON para fins de demonstração acadêmica. Em produção, o ideal é substituir esse armazenamento por um banco persistente e mais robusto, como:
+O desenvolvimento local usa SQLite. O arquivo `database/database.json` é mantido apenas como fonte de migração para instalações antigas. O SQLite local não deve ser usado como banco de produção em múltiplas instâncias do Azure App Service.
+
+Para produção, use Azure SQL, que oferece banco persistente, backups, controle de acesso e operação adequada para múltiplas instâncias:
 
 - Azure SQL
 - Cosmos DB
 - Azure Storage
 - PostgreSQL
+
+## Configuração do Azure SQL
+
+### 1. Criar os recursos no Azure Portal
+
+1. Acesse `portal.azure.com` e abra **Create a resource**.
+2. Pesquise **SQL Database** e selecione **Create**.
+3. Crie ou selecione um **Resource group**.
+4. Informe um nome globalmente único para o banco e crie um **SQL server** novo.
+5. Escolha a região mais próxima do App Service.
+6. Para Azure Education, escolha a camada de menor custo disponível compatível com o crédito da sua assinatura, como Basic ou Serverless, quando disponível.
+7. Na rede, permita temporariamente **Add current client IP address** para configurar pelo seu computador. Depois, restrinja o acesso ao App Service e remova regras amplas.
+8. Conclua a criação e abra **Query editor** para testar a conexão.
+
+### 2. Criar o esquema inicial
+
+No Query editor, execute:
+
+```sql
+CREATE TABLE Users (
+	id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+	name NVARCHAR(120) NOT NULL,
+	username NVARCHAR(80) NOT NULL UNIQUE,
+	password_hash VARBINARY(128) NOT NULL,
+	password_salt VARBINARY(32) NOT NULL,
+	pin_hash VARBINARY(128) NOT NULL,
+	pin_salt VARBINARY(32) NOT NULL,
+	balance DECIMAL(18, 2) NOT NULL DEFAULT 1000.00,
+	two_factor_enabled BIT NOT NULL DEFAULT 0,
+	two_factor_secret NVARCHAR(64) NULL,
+	last_login DATETIME2 NULL
+);
+
+CREATE TABLE Transactions (
+	id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+	sender_id UNIQUEIDENTIFIER NOT NULL,
+	recipient_id UNIQUEIDENTIFIER NOT NULL,
+	amount DECIMAL(18, 2) NOT NULL,
+	timestamp DATETIME2 NOT NULL,
+	previous_hash CHAR(64) NOT NULL,
+	signature CHAR(64) NOT NULL,
+	CONSTRAINT CK_Transactions_Amount CHECK (amount > 0),
+	CONSTRAINT FK_Transactions_Sender FOREIGN KEY (sender_id) REFERENCES Users(id),
+	CONSTRAINT FK_Transactions_Recipient FOREIGN KEY (recipient_id) REFERENCES Users(id)
+);
+
+CREATE INDEX IX_Transactions_Sender ON Transactions(sender_id, timestamp DESC);
+CREATE INDEX IX_Transactions_Recipient ON Transactions(recipient_id, timestamp DESC);
+```
+
+### 3. Obter a string de conexão
+
+No recurso SQL Database, abra **Connection strings**, selecione **Node.js** e copie a string. Não coloque essa string no GitHub. Salve-a como segredo nas configurações do App Service.
+
+Para desenvolvimento local, use um arquivo `.env` ignorado pelo Git:
+
+```env
+AZURE_SQL_CONNECTION_STRING="Server=tcp:SEU_SERVIDOR.database.windows.net,1433;Initial Catalog=SEU_BANCO;Persist Security Info=False;User ID=SEU_USUARIO;Password=SUA_SENHA;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+```
+
+### 4. Configurar o App Service
+
+No App Service, abra **Settings > Environment variables > App settings** e adicione:
+
+```text
+NODE_ENV=production
+AEGIS_SECRET=<segredo forte gerado fora do Git>
+AZURE_SQL_CONNECTION_STRING=<string de conexão do Azure SQL>
+```
+
+Mantenha HTTPS Only habilitado. O projeto continua usando `process.env.PORT`, como exigido pelo App Service.
+
+### 5. Próxima alteração de código
+
+O repositório atual está validado com SQLite local. Antes de produção, o `DatabaseRepository` deve ser substituído por uma implementação Azure SQL usando um driver como `mssql`, com queries parametrizadas e transações SQL reais. Não basta trocar apenas a string de conexão: o código precisa mapear as operações de usuários e transações para as tabelas acima.
 
 ## Deploy no Azure
 

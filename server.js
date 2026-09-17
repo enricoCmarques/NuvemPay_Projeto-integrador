@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const DatabaseRepository = require('./src/repositories/DatabaseRepository');
 const authRoutes = require('./src/routes/authRoutes');
 const pixRoutes = require('./src/routes/pixRoutes');
 
@@ -42,4 +43,11 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Rota não encontrada.' });
 });
 
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+DatabaseRepository.init()
+  .then(() => {
+    app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+  })
+  .catch((error) => {
+    console.error('Falha ao inicializar o banco de dados:', error.message);
+    process.exit(1);
+  });
