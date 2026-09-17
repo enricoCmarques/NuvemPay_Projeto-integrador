@@ -1,0 +1,21 @@
+{
+  "users": [
+    {
+      "id": "dc90f8fb-bcb7-4ad0-8288-b086beb90ad6",
+      "name": "aa",
+      "username": "aa",
+      "password": "acc7dd2d8db372c1c343725eb34e7f5b5eb727b60223b39abc0723089f9d68c01c93d19381befe6f238255bc7ea661c27575d6be60b57aba2f48bc58e0ffc608",
+      "passwordSalt": "6b30f33887a544cfdba7f3b0a5e8c06e",
+      "pin": "3e5d21f9eadb9575a35ab4b20d080485177e248aceec9975162557136d33256fb263e62071c88b3516c478ac5ce1b6d74108b1f2fa5a1a40493c990aba06d296",
+      "pinSalt": "50499c57c25a11e401d2f9a081bf90c7",
+      "balance": 1000,
+      "twoFactorEnabled": false,
+      "twoFactorSecret": null,
+      "lastLogin": {
+        "date": "2026-09-17T21:26:04.881Z",
+        "ip": "::1"
+      }
+    }
+  ],
+  "transactions": []
+}
